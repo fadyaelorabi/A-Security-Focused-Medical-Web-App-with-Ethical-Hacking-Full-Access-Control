@@ -117,75 +117,74 @@ router.get('/profile', async (req, res) => {
   });
 
 
-// Update: Edit contact info and password
-  router.put('/profile', async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const { email, phone, address, oldPassword, newPassword } = req.body;
+  
+  // UPDATE: Edit contact info and password
 
-      // Find the user
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ message: 'User not found' });
-
-      // Update contact info if provided
-      if (email) user.email = email;
-      if (phone) user.phone = phone;
-      if (address) user.address = address;
-
-      // If user wants to change password, validate old password and update
-      if (newPassword) {
-        if (!oldPassword) {
-          return res.status(400).json({ message: 'Old password is required to change password' });
-        }
-
-        const isMatch = await bcrypt.compare(oldPassword, user.password);
-        if (!isMatch) {
-          return res.status(401).json({ message: 'Old password is incorrect' });
-        }
-
-        // Hash new password and save
-        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-        user.password = hashedNewPassword;
-      }
-
-      await user.save();
-
-      res.json({ message: 'Profile updated successfully' });
-
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error updating profile' });
-    }
-  });
-
-
-// Delete: Cancel an appointment
-router.delete('/appointments/:appointmentId', async (req, res) => {
-  try {
-    const patientId = req.user.id;
-    const appointmentId = req.params.appointmentId;
-
-    // Find appointment by ID
-    const appointment = await Appointment.findById(appointmentId);
-    if (!appointment) {
-      return res.status(404).json({ message: 'Appointment not found' });
-    }
-
-    // Check if appointment belongs to the logged-in patient
-    if (appointment.patientUsername !== req.user.username) {
-      return res.status(403).json({ message: 'Access denied: You can only cancel your own appointments' });
-    }
-
-    // Delete appointment
-    await Appointment.findByIdAndDelete(appointmentId);
-
-    res.json({ message: `Appointment ${appointmentId} canceled successfully` });
-
-  } catch (error) {
-    console.error('Error canceling appointment:', error);
-    res.status(500).json({ message: 'Server error canceling appointment' });
-  }
-});
-
-
-export default router;
+ router.put('/profile', async (req, res) => {
+   try {
+     const userId = req.user.id;
+     const { email, phone, address, oldPassword, newPassword } = req.body;
+ 
+     // Find the user by ID
+     const user = await User.findById(userId);
+     if (!user) return res.status(404).json({ message: 'User not found' });
+ 
+     // Update contact information if provided
+     if (email) user.email = email;
+     if (phone) user.phone = phone;
+     if (address) user.address = address;
+ 
+     // Handle password update if requested
+     if (newPassword) {
+       if (!oldPassword) {
+         return res.status(400).json({ message: 'Old password is required to change password' });
+       }
+ 
+       const isMatch = await bcrypt.compare(oldPassword, user.password);
+       if (!isMatch) {
+         return res.status(401).json({ message: 'Old password is incorrect' });
+       }
+ 
+       // Hash and update the new password
+       const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+       user.password = hashedNewPassword;
+     }
+ 
+     await user.save();
+ 
+     res.json({ message: 'Profile updated successfully' });
+   } catch (error) {
+     console.error('Error updating profile:', error);
+     res.status(500).json({ message: 'Server error updating profile' });
+   }
+ });
+ 
+ /**
+  * DELETE: Cancel an appointment
+  */
+ router.delete('/appointments/:appointmentId', async (req, res) => {
+   try {
+     const patientId = req.user.id;
+     const appointmentId = req.params.appointmentId;
+ 
+     // Find appointment by ID
+     const appointment = await Appointment.findById(appointmentId);
+     if (!appointment) {
+       return res.status(404).json({ message: 'Appointment not found' });
+     }
+ 
+     // Verify appointment belongs to the logged-in patient (by username)
+     if (appointment.patientUsername !== req.user.username) {
+       return res.status(403).json({ message: 'Access denied: You can only cancel your own appointments' });
+     }
+ 
+     await Appointment.findByIdAndDelete(appointmentId);
+ 
+     res.json({ message: `Appointment ${appointmentId} canceled successfully` });
+   } catch (error) {
+     console.error('Error canceling appointment:', error);
+     res.status(500).json({ message: 'Server error canceling appointment' });
+   }
+ });
+ 
+ export default router;

@@ -7,6 +7,7 @@ import { rolesPermissions } from './config/rolesPermissions.js';
 import patientRoutes from './authRoutes/patientRoutes.js';
 import doctorRoutes from './authRoutes/doctorRoutes.js';
 import adminRoutes from './authRoutes/adminRoutes.js';
+import logs from './authRoutes/logs.js';
 import { signup, login } from './controllers/authController.js';
 
 dotenv.config();
@@ -36,6 +37,7 @@ app.get('/', (req, res) => {
 app.use('/auth/patient', patientRoutes);
 app.use('/auth/doctor', doctorRoutes);
 app.use('/auth/admin', adminRoutes);
+app.use('/auth/log', logs);
 
 // Public signup-log route
 app.post('/signup', signup);

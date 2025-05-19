@@ -86,37 +86,36 @@ router.get('/patients/records', async (req, res) => {
     }
   });
   
-
 /**
  * UPDATE: Modify treatment notes in an existing record
  */
 router.put('/records/:recordId', async (req, res) => {
-    try {
-      const doctorId = req.user.id;
-      const recordId = req.params.recordId;
-      let { treatmentNotes } = req.body;
-  
-      const record = await PatientRecord.findById(recordId);
-      if (!record) return res.status(404).json({ message: 'Record not found' });
-  
-      if (record.doctorId.toString() !== doctorId) {
-        return res.status(403).json({ message: 'Access denied: Not your record' });
-      }
-  
-      // Normalize treatmentNotes to array if it isn't
-      treatmentNotes = Array.isArray(treatmentNotes) ? treatmentNotes : [treatmentNotes];
-  
-      record.notes = treatmentNotes;  // update the 'notes' field
-      await record.save();
-  
-      res.json({ message: 'Treatment notes updated', record });
-  
-    } catch (error) {
-      console.error('Error updating record:', error);
-      res.status(500).json({ message: 'Server error' });
+  try {
+    const doctorId = req.user.id;
+    const recordId = req.params.recordId;
+    let { treatmentNotes } = req.body;
+
+    const record = await PatientRecord.findById(recordId);
+    if (!record) return res.status(404).json({ message: 'Record not found' });
+
+    // Verify doctor owns the record
+    if (record.doctorId.toString() !== doctorId) {
+      return res.status(403).json({ message: 'Access denied: Not your record' });
     }
-  });
-  
+
+    // Ensure treatmentNotes is an array
+    treatmentNotes = Array.isArray(treatmentNotes) ? treatmentNotes : [treatmentNotes];
+
+    // Update treatment notes
+    record.notes = treatmentNotes;
+    await record.save();
+
+    res.json({ message: 'Treatment notes updated', record });
+  } catch (error) {
+    console.error('Error updating record:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 /**
  * DELETE: Remove draft record (only if isDraft = true)
@@ -129,16 +128,17 @@ router.delete('/records/:recordId', async (req, res) => {
     const record = await PatientRecord.findById(recordId);
     if (!record) return res.status(404).json({ message: 'Record not found' });
 
+    // Verify doctor owns the record
     if (record.doctorId.toString() !== doctorId) {
       return res.status(403).json({ message: 'Access denied: Not your record' });
     }
 
+    // Only allow deletion if record is a draft
     if (!record.isDraft) {
       return res.status(400).json({ message: 'Only draft records can be deleted' });
     }
 
     await PatientRecord.findByIdAndDelete(recordId);
-
     res.json({ message: 'Draft record deleted successfully' });
   } catch (error) {
     console.error('Error deleting draft record:', error);
