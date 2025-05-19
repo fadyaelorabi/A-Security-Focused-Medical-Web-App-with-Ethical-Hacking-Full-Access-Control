@@ -78,32 +78,60 @@ router.get('/users/:id', async (req, res) => {
   res.json(user);
 });
 
+/*
 // Create user
 router.post('/users', async (req, res) => {
   const newUser = new User(req.body);
   await newUser.save();
   res.status(201).json(newUser);
-});
+});*/
 
-// Update user (e.g., role, email, etc.)
+// Update user
 router.put('/users/:id', async (req, res) => {
-  const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(updatedUser);
+  try {
+    const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ message: 'Server error updating user' });
+  }
 });
 
 // Delete user
 router.delete('/users/:id', async (req, res) => {
-  await User.findByIdAndDelete(req.params.id);
-  res.json({ message: 'User deleted' });
+  try {
+    const deletedUser = await User.findByIdAndDelete(req.params.id);
+    if (!deletedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'User deleted' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ message: 'Server error deleting user' });
+  }
 });
+
 
 
 // PATIENT RECORDS – Full CRUD
 // Get all patient records
 router.get('/records', async (req, res) => {
-  const records = await PatientRecord.find().populate('doctorId patientId prescriptions');
-  res.json(records);
+  try {
+    const records = await PatientRecord.find()
+      .populate('patientId', 'username email name')  // pick only the fields you need
+      .populate('doctorId', 'username email name')   // optional: show doctor info too
+      .populate('prescriptions');                    // get prescription data
+
+    res.json({ records });
+  } catch (error) {
+    console.error('Error fetching all patient records:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
+
 
 // Get single patient record
 router.get('/records/:id', async (req, res) => {
@@ -114,54 +142,120 @@ router.get('/records/:id', async (req, res) => {
 
 // Create new patient record
 router.post('/records', async (req, res) => {
-  const newRecord = new PatientRecord(req.body);
-  await newRecord.save();
-  res.status(201).json(newRecord);
+  try {
+    const newRecord = new PatientRecord(req.body);
+    await newRecord.save();
+    res.status(201).json(newRecord);
+  } catch (error) {
+    console.error('Error creating patient record:', error);
+    res.status(500).json({ message: 'Server error creating patient record' });
+  }
 });
 
 // Update patient record
 router.put('/records/:id', async (req, res) => {
-  const updated = await PatientRecord.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(updated);
+  try {
+    const updated = await PatientRecord.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) {
+      return res.status(404).json({ message: 'Patient record not found' });
+    }
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating patient record:', error);
+    res.status(500).json({ message: 'Server error updating patient record' });
+  }
 });
 
 // Delete record
 router.delete('/records/:id', async (req, res) => {
-  await PatientRecord.findByIdAndDelete(req.params.id);
-  res.json({ message: 'Record deleted' });
+  try {
+    const deleted = await PatientRecord.findByIdAndDelete(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ message: 'Patient record not found' });
+    }
+    res.json({ message: 'Record deleted' });
+  } catch (error) {
+    console.error('Error deleting patient record:', error);
+    res.status(500).json({ message: 'Server error deleting patient record' });
+  }
 });
+
 
 //PRESCRIPTIONS –  Full CRUD
 // Get all prescriptions
 router.get('/prescriptions', async (req, res) => {
-  const prescriptions = await Prescription.find().populate('doctorId patientId');
-  res.json(prescriptions);
+  try {
+    const prescriptions = await Prescription.find()
+      .populate({
+        path: 'recordId',
+        populate: [
+          { path: 'doctorId', select: 'username email name' },
+          { path: 'patientId', select: 'username email name' }
+        ]
+      });
+    res.json(prescriptions);
+  } catch (error) {
+    console.error('Error fetching prescriptions:', error);
+    res.status(500).json({ message: 'Server error fetching prescriptions' });
+  }
 });
 
-// Get one
+// Get one prescription by ID
 router.get('/prescriptions/:id', async (req, res) => {
-  const pres = await Prescription.findById(req.params.id).populate('doctorId patientId');
-  res.json(pres);
+  try {
+    // Prescriptions themselves don't have doctorId/patientId directly; they link to PatientRecord via recordId.
+    const pres = await Prescription.findById(req.params.id)
+      .populate({
+        path: 'recordId',
+        populate: [
+          { path: 'doctorId', select: 'username email name' },
+          { path: 'patientId', select: 'username email name' }
+        ]
+      });
+    if (!pres) return res.status(404).json({ message: 'Prescription not found' });
+    res.json(pres);
+  } catch (error) {
+    console.error('Error fetching prescription:', error);
+    res.status(500).json({ message: 'Server error fetching prescription' });
+  }
 });
 
-// Create
+// Create prescription
 router.post('/prescriptions', async (req, res) => {
-  const newPres = new Prescription(req.body);
-  await newPres.save();
-  res.status(201).json(newPres);
+  try {
+    const newPres = new Prescription(req.body);
+    await newPres.save();
+    res.status(201).json(newPres);
+  } catch (error) {
+    console.error('Error creating prescription:', error);
+    res.status(500).json({ message: 'Server error creating prescription' });
+  }
 });
 
-// Update
+// Update prescription
 router.put('/prescriptions/:id', async (req, res) => {
-  const updated = await Prescription.findByIdAndUpdate(req.params.id, req.body, { new: true });
-  res.json(updated);
+  try {
+    const updated = await Prescription.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ message: 'Prescription not found' });
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating prescription:', error);
+    res.status(500).json({ message: 'Server error updating prescription' });
+  }
 });
 
-// Delete
+// Delete prescription
 router.delete('/prescriptions/:id', async (req, res) => {
-  await Prescription.findByIdAndDelete(req.params.id);
-  res.json({ message: 'Prescription deleted' });
+  try {
+    const deleted = await Prescription.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Prescription not found' });
+    res.json({ message: 'Prescription deleted' });
+  } catch (error) {
+    console.error('Error deleting prescription:', error);
+    res.status(500).json({ message: 'Server error deleting prescription' });
+  }
 });
+
 
 
 /**

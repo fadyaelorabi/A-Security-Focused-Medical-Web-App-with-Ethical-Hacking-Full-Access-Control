@@ -13,59 +13,60 @@ router.use(authenticateToken, authorizeRoles('Doctor'));
  * CREATE: Add diagnosis + prescription to patient record
  */
 router.post('/records/:patientId', async (req, res) => {
-    try {
-      const doctorId = req.user.id;
-      const patientId = req.params.patientId;
-      const { diagnosis, treatmentNotes, prescription } = req.body;
-  
-      // 1. Validate patient exists and is of role "Patient"
-      const patient = await User.findById(patientId);
-      if (!patient || patient.role !== 'Patient') {
-        return res.status(404).json({ message: 'Patient not found or not a valid patient role' });
-      }
-  
-      // 2. Normalize diagnosis and treatmentNotes to arrays if not already
-      const diagnosesArray = Array.isArray(diagnosis) ? diagnosis : [diagnosis];
-      const notesArray = Array.isArray(treatmentNotes) ? treatmentNotes : [treatmentNotes];
-  
-      // 3. Create Patient Record
-      const newRecord = new PatientRecord({
-        doctorId,
-        patientId,
-        diagnoses: diagnosesArray,
-        notes: notesArray
-      });
-  
-      const savedRecord = await newRecord.save();
-  
-      // 4. Create Prescription (if provided)
-      let savedPrescription = null;
-      if (prescription?.medication) {
-        const newPrescription = new Prescription({
-          recordId: savedRecord._id,
-          medication: prescription.medication,
-          dosage: prescription.dosage,
-          instructions: prescription.instructions
-        });
-        savedPrescription = await newPrescription.save();
-      
-        savedRecord.prescriptions.push(savedPrescription._id);
-        await savedRecord.save();
-      }
-      
-  
-      // 5. Return success response
-      res.status(201).json({
-        message: 'Record and prescription created successfully',
-        record: savedRecord,
-        prescription: savedPrescription
-      });
-  
-    } catch (error) {
-      console.error('Error creating record:', error);
-      res.status(500).json({ message: 'Server error' });
+  try {
+    const doctorId = req.user.id;
+    const patientId = req.params.patientId;
+    const { diagnosis, treatmentNotes, prescription } = req.body;
+
+    // 1. Validate patient exists and is of role "Patient"
+    const patient = await User.findById(patientId);
+    if (!patient || patient.role !== 'Patient') {
+      return res.status(404).json({ message: 'Patient not found or not a valid patient role' });
     }
-  });
+
+    // 2. Normalize diagnosis and treatmentNotes to arrays if not already
+    const diagnosesArray = Array.isArray(diagnosis) ? diagnosis : [diagnosis];
+    const notesArray = Array.isArray(treatmentNotes) ? treatmentNotes : [treatmentNotes];
+
+    // 3. Create Patient Record
+    const newRecord = new PatientRecord({
+      doctorId,
+      patientId,
+      diagnoses: diagnosesArray,
+      notes: notesArray
+    });
+
+    const savedRecord = await newRecord.save();
+
+    // 4. Create Prescription (if provided)
+    let savedPrescription = null;
+    if (prescription?.medication) {
+      const newPrescription = new Prescription({
+        recordId: savedRecord._id,
+        medication: prescription.medication,
+        dosage: prescription.dosage,
+        instructions: prescription.instructions
+      });
+      savedPrescription = await newPrescription.save();
+
+      savedRecord.prescriptions.push(savedPrescription._id);
+      await savedRecord.save();
+    }
+
+    // 5. Return success response with patient username
+    res.status(201).json({
+      message: 'Record and prescription created successfully',
+      patientUsername: patient.username,
+      record: savedRecord,
+      prescription: savedPrescription
+    });
+
+  } catch (error) {
+    console.error('Error creating record:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 /**
  * READ: View records of patients assigned to the doctor

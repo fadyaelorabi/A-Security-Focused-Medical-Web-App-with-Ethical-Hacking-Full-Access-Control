@@ -82,7 +82,7 @@ export const login = async (req, res) => {
       }
   
       // Generate JWT token
-      const payload = { id: user._id, username: user.username, role: user.role };
+      const payload = {  id: user._id.toString(), username: user.username, role: user.role };
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
   
       // After successful 2FA verification (or if 2FA is not enabled, depending on your logic)
@@ -91,7 +91,7 @@ export const login = async (req, res) => {
       res.json({
         message: 'Login successful',
         token,
-        user: { id: user._id, username: user.username, role: user.role, email: user.email, twoFAEnabled: user.twoFAEnabled }
+        user: {  id: user._id.toString(), username: user.username, role: user.role, email: user.email, twoFAEnabled: user.twoFAEnabled }
       });
 
     } catch (error) {

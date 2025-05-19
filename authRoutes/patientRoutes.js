@@ -4,6 +4,7 @@ import User from '../models/User.js';  // Adjust path
 import { authenticateToken, authorizeRoles } from '../middlewares/authMiddleware.js';
 import Prescription from '../models/Prescription.js';
 import PatientRecord from '../models/PatientRecord.js';
+import bcrypt from 'bcrypt';
 
 const router = express.Router();
 
@@ -13,7 +14,10 @@ router.use(authenticateToken, authorizeRoles('Patient'));
 // Create: Book an appointment
 router.post('/appointments', async (req, res) => {
   try {
+    console.log('req.user:', req.user);
+
     const patientUsername = req.user.username;
+    const patientId = req.user.id;
     const { doctorUsername, dateTime, reason } = req.body;
 
     // Validate doctor exists and is a doctor
@@ -23,7 +27,9 @@ router.post('/appointments', async (req, res) => {
     }
 
     const newAppointment = new Appointment({
+      patientId,
       patientUsername,
+      doctorId: doctor._id,
       doctorUsername,
       dateTime,
       reason
@@ -73,12 +79,42 @@ router.get('/profile', async (req, res) => {
 
 
 // Read: View own prescriptions
-router.get('/prescriptions', (req, res) => {
-  const patientId = req.user.id;
+  router.get('/prescriptions', authenticateToken, authorizeRoles('Patient'), async (req, res) => {
+    const patientId = req.user.id;
 
-  // TODO: Fetch and return patient's prescriptions from DB
-  res.json({ message: 'Patient prescriptions', patientId });
-});
+    try {
+      // 1. Find all record IDs for the logged-in patient
+      const records = await PatientRecord.find({ patientId }).select('_id doctorId');
+      const recordIds = records.map(record => record._id);
+      const doctorMap = new Map(records.map(record => [record._id.toString(), record.doctorId]));
+  
+      // 2. Fetch prescriptions linked to those records
+      const prescriptions = await Prescription.find({ recordId: { $in: recordIds } });
+  
+      // 3. Optionally, include doctor username and email
+      const uniqueDoctorIds = [...new Set(records.map(r => r.doctorId.toString()))];
+      const doctors = await User.find({ _id: { $in: uniqueDoctorIds } }).select('username email');
+      const doctorInfoMap = new Map(doctors.map(doc => [doc._id.toString(), doc]));
+  
+      // 4. Attach doctor info to each prescription
+      const prescriptionsWithDoctor = prescriptions.map(pres => {
+        const doctorId = doctorMap.get(pres.recordId.toString());
+        const doctor = doctorInfoMap.get(doctorId?.toString());
+        return {
+          ...pres.toObject(),
+          doctor: doctor ? {
+            username: doctor.username,
+            email: doctor.email
+          } : null
+        };
+      });
+  
+      res.json({ prescriptions: prescriptionsWithDoctor });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Error fetching prescriptions' });
+    }
+  });
 
 
 // Update: Edit contact info and password
